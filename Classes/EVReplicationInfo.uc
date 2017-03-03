@@ -178,7 +178,7 @@ simulated function string GetPreviewImage(CRZUIDataProvider_MapInfo MapData, str
     MapName = MapData.MapName;
   if (MapName != "")
   {
-    PreviewImage = Texture(DynamicLoadObject("MapPreviews.LevelPrevs." $ MapName,class'Texture',true));
+    PreviewImage = Texture(DynamicLoadObject("MapPreviews.LevelPrevs." $ Repl(MapName, " ", "_"), class'Texture', true));
     if(PreviewImage != none)
     {
       //`log("returning map picture for " $ MapName);
