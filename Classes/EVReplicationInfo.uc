@@ -1,19 +1,133 @@
 //================================================================
 // ExtVoting.EVReplicationInfo
 // ----------------
-// Fixing the client crash when too many voting options
+// - fixing the client crash when too many voting options
+// - optimized vote option transfer with 
+//    * one transfer for a distinct list of all game names
+//    * one transfer per map with map name + vote indices for each game (0 = not available, 1=vote index 0, ...)
 // ----------------
-// by Chatouille
+// by Chatouille and PredatH0r
 //================================================================
+
 class EVReplicationInfo extends CRZVoteReplicationInfo;
+
+struct MapVoteInfo
+{
+  var string MapName;
+  var int VoteIndex[16];
+};
 
 var bool bSortGameVoteList;
 var bool bFillVotingList;
 var CRZVoteListInterface FillVotingList_List;
+var array<MapVoteInfo> mapInfos;
+var string options[16];
+var int optionCount, mapCount, mapIndex;
 
 // keep a hard reference to the MapPreviews.upk package to force-download them to clients
 var Texture Rankin;
 
+
+simulated event PostBeginPlay()
+{
+	Super.PostBeginPlay();
+
+	if ( WorldInfo.NetMode != NM_DedicatedServer )
+		SetTimer(1.0, true, 'UpdateVoteList');	// better performance with a 1sec timer than Tick
+}
+
+function EnableTransfers()
+{		
+	//start slowly transfering the other games (using 0.1sec per map instead of 0.2sec per entry)
+	SetTimer(0.1 * WorldInfo.TimeDilation, True, 'TransferTimer');
+}
+
+function TransferTimer()
+{
+  local int i, m, o;
+  local string MapAndGame, map, game;
+  local byte NumVotes;
+
+  if (VoteManager == none)
+    return;
+
+  if (mapCount == 0 && optionCount == 0)
+  {
+    for (i=0; i<VoteManager.VoteGames.Length; i++)
+    {
+  	  if (!VoteManager.GetMapAndGameStringByVoteIndex(i, MapAndGame, NumVotes))
+        continue;
+		
+      class'CRZVoteManager'.static.SplitMapAndName(MapAndGame,Map,Game);
+
+      // find/add option(=game) index
+      for (o=0; o<optionCount; o++)
+      {
+        if (options[o] == game)
+          break;
+      }
+      if (o == optionCount)
+      {
+        options[o] = game;
+        ++optionCount;
+      }
+
+      // find/add map index
+      for (m=0; m<mapCount; m++)
+      {
+        if (mapInfos[m].MapName == map)
+          break;
+      }
+      if (m == mapCount)
+      {
+        mapInfos.Add(1);
+        mapInfos[m].MapName = map;
+        ++mapCount;
+      }
+    
+      // set the vote index (use +1 so that a value of 0 means that the combination of map/game is not used)
+      mapInfos[m].VoteIndex[o] = i + 1;
+    }
+  
+    ClientReceiveOptions(options);
+
+    if(VoteManager.GetMapAndGameOfCurrentMapCycle(MapAndGame))
+			ClientReceiveNextCycleMap(MapAndGame);
+    return;
+  }
+
+  if (mapIndex < mapCount)
+    ClientReceiveMapVoteData(mapInfos[mapIndex++]);
+  else
+  {
+    ClearTimer('TransferTimer');
+    ClientBeginVoting();
+  }
+}
+
+simulated reliable client function ClientReceiveOptions(string _options[16])
+{
+  local int i;
+  for (i = 0; i < ArrayCount(_options); i++)
+  {
+    options[i] = _options[i];
+    if (options[i] != "")
+      optionCount = i+1;
+  }
+}
+
+simulated reliable client function ClientReceiveMapVoteData(MapVoteInfo mapInfo)
+{
+  local byte NumVotes;
+  local int i;
+
+  NumVotes = 0;
+  for (i=0; i<optionCount; i++)
+  {
+    if (mapInfo.VoteIndex[i] != 0)
+      ClientReceiveMapVoteInfo(mapInfo.VoteIndex[i] - 1, mapInfo.MapName $ "," $ options[i], NumVotes);
+  }
+}
 
 // Defer the sorting to next Tick
 simulated function SortGameVoteList()
@@ -26,15 +140,6 @@ simulated function FillVotingList(CRZVoteListInterface UIVoteList)
 {
 	bFillVotingList = true;
 	FillVotingList_List = UIVoteList;
-}
-
-
-simulated event PostBeginPlay()
-{
-	Super.PostBeginPlay();
-
-	if ( WorldInfo.NetMode != NM_DedicatedServer )
-		SetTimer(1.0, true, 'UpdateVoteList');	// better performance with a 1sec timer than Tick
 }
 
 simulated function UpdateVoteList()
