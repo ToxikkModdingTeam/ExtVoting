@@ -217,7 +217,7 @@ simulated function Modified_FillVotingList( CRZVoteListInterface UIVoteList)
   {
     if(CRZHudMovie(UIVoteList) == none)
     {	
-      UIVoteList.AddPicture(GetPreviewImage(GameVotesClientList[BestVotedGameIdx].MapInfo, SortedGameVotesList[i].MapName),  class'CRZUIDataProvider_MapInfo'.static.isMapAvailable(GameVotesClientList[BestVotedGameIdx].MapInfo,bFullGame),100,0);
+      UIVoteList.AddPicture(GetPreviewImage(GameVotesClientList[BestVotedGameIdx].MapInfo, GameVotesClientList[BestVotedGameIdx].MapName),  class'CRZUIDataProvider_MapInfo'.static.isMapAvailable(GameVotesClientList[BestVotedGameIdx].MapInfo,bFullGame),100,0);
       UIVoteList.AddItem("Label", "maplable",, 1).SetString("text",GameVotesClientList[BestVotedGameIdx].MapName);
       UIVoteList.AddItem("Label", "modelabel", class'CRZHudMovie'.default.UIGrey04HexColor, 0).SetString("text",class'GFxCRZUIScoreboardBase'.default.ModeLabel$":"@GameVotesClientList[BestVotedGameIdx].GameMode);
       UIVoteList.AddItem("Label", "voteslabel", class'CRZHudMovie'.default.UIGrey04HexColor, 0).SetString("text",class'CRZHudMovie'.default.VotesLabel$":"@class'CRZHud'.static.FormatInteger(GameVotesClientList[BestVotedGameIdx].NumVotes,2));
